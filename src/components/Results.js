@@ -6,7 +6,10 @@ export default props => {
       <article key={post._id}>
         <header>
           <h1>{post._source.title}</h1>
-          <p><b>by {post._source.authorId}</b></p>
+          <p>
+            <b>Post ID:</b> {post._id}<br />
+            <b>Written by:</b> {post._source.author}
+          </p>
         </header>
 
         <div>

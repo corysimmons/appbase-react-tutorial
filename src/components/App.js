@@ -1,19 +1,20 @@
 import React, {Component} from 'react'
 import Appbase from 'appbase-js'
 import axios from 'axios'
+import _, {sortBy} from 'lodash'
 
 import Results from './Results'
 
 const appbaseReadRef = new Appbase({
   url: 'https://scalr.api.appbase.io',
   app: 'ReactOnly',
-  credentials: 'VqmBAxCV6:a4aeb223-e253-4544-a4e3-9893fe102ee5'
+  credentials: 'MxU3hL0zf:88d32ec1-65ba-485c-a6b1-1a8ccf67bcea'
 })
 
 const appbaseWriteRef = new Appbase({
   url: 'https://scalr.api.appbase.io',
   app: 'ReactOnly',
-  credentials: 'tpuuZ8Tnh:4bd3788d-3a12-4344-a5d9-3f57acc11a2e'
+  credentials: '4YGjflpEg:2267ccf8-711f-493c-99b0-c430cbbf1a1c'
 })
 
 export default class App extends Component {
@@ -21,7 +22,8 @@ export default class App extends Component {
     super()
 
     this.state = {
-      posts: []
+      posts: [],
+      searchQuery: ''
     }
   }
 
@@ -32,13 +34,22 @@ export default class App extends Component {
         size: 1000,
         body: {
           query: {
-            match_all: {}
+            bool: {
+              must: [
+                {
+                  match: {
+                    body: 'quod commodi'
+                  }
+                }
+              ]
+            }
           }
         }
       })
       .on('data', res => {
+        console.log(res)
         this.setState({
-          posts: res.hits.hits
+          posts: _.orderBy(res.hits.hits, o => Number(o._score), ['desc'])
         })
       })
       .on('error', err => console.error(err))
@@ -48,13 +59,21 @@ export default class App extends Component {
         type: 'post',
         body: {
           query: {
-            match_all: {}
+            bool: {
+              must: [
+                {
+                  match: {
+                    body: 'quod commodi'
+                  }
+                }
+              ]
+            }
           }
         }
       })
       .on('data', res => {
         this.setState({
-          posts: [res, ...this.state.posts]
+          posts: _.orderBy([res, ...this.state.posts], o => o._score, ['desc'])
         })
       })
       .on('error', err => console.error(err))
@@ -64,16 +83,16 @@ export default class App extends Component {
     e.preventDefault()
 
     // Fetch dummy JSON using Axios
-    axios.get('https://jsonplaceholder.typicode.com/posts')
+    axios.get('http://localhost:1337/posts')
       .then(res => {
-        // Map over each post in the response array, writing to Appbase.
-        res.data.map(post => {
+        // Map over each post object in the response array, writing to Appbase.
+        res.data.posts.map(post => {
           return appbaseWriteRef.index({
             type: 'post',
-            id: Math.random(),
+            id: post.id,
             body: {
               title: post.title,
-              authorId: post.userId,
+              author: post.author,
               body: post.body
             }
           })
@@ -83,11 +102,20 @@ export default class App extends Component {
       .catch(err => console.error(err))
   }
 
+  handleChange = e => {
+    e.preventDefault()
+
+    this.setState({
+      searchQuery: e.target.value
+    })
+  }
+
   render() {
     return (
       <div>
-        <button onClick={this.addPostsToAppbase}>Add 100 blog posts to Appbase</button>
+        <button onClick={this.addPostsToAppbase} style={{padding: 10, cursor: 'pointer'}}>Add blog posts data to Appbase</button>
         <br />
+        <input type="text" onChange={e => this.handleChange(e)} defaultValue={this.state.searchQuery} placeholder="Search" style={{padding: 10, width: 240}}/>
         <Results posts={this.state.posts} />
       </div>
     )
