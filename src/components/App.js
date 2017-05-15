@@ -22,12 +22,12 @@ export default class App extends Component {
     super()
 
     this.state = {
-      posts: []
-      // , searchQuery: ''
+      posts: [],
+      searchQuery: ''
     }
   }
 
-  componentDidMount() {
+  fetchPosts = () => {
     appbaseReadRef
       .search({
         type: 'post',
@@ -62,6 +62,10 @@ export default class App extends Component {
       .on('error', err => console.error(err))
   }
 
+  componentDidMount() {
+    this.fetchPosts()
+  }
+
   addPostsToAppbase = e => {
     e.preventDefault()
 
@@ -85,20 +89,75 @@ export default class App extends Component {
       .catch(err => console.error(err))
   }
 
-  // handleChange = e => {
-  //   e.preventDefault()
-  //
-  //   this.setState({
-  //     searchQuery: e.target.value
-  //   })
-  // }
+  handleChange = e => {
+    e.preventDefault()
+
+    this.setState({
+      searchQuery: e.target.value
+    })
+
+    if (this.state.searchQuery !== '') {
+      appbaseReadRef
+        .search({
+          type: 'post',
+          size: 1000,
+          body: {
+            query: {
+              bool: {
+                must: [
+                  {
+                    match: {
+                      title: this.state.searchQuery
+                    }
+                  }
+                ]
+              },
+              minimum_should_match: 1
+            }
+          }
+        })
+        .on('data', res => {
+          this.setState({
+            posts: orderBy(res.hits.hits, o => Number(o._id), ['asc'])
+          })
+        })
+        .on('error', err => console.error(err))
+
+      appbaseReadRef
+        .searchStream({
+          type: 'post',
+          body: {
+            query: {
+              bool: {
+                must: [
+                  {
+                    match: {
+                      title: this.state.searchQuery
+                    }
+                  }
+                ],
+                minimum_should_match: 1
+              }
+            }
+          }
+        })
+        .on('data', res => {
+          this.setState({
+            posts: orderBy([...this.state.posts, res], o => Number(o._id), ['asc'])
+          })
+        })
+        .on('error', err => console.error(err))
+    } else {
+      this.fetchPosts()
+    }
+  }
 
   render() {
     return (
       <div>
         <button onClick={this.addPostsToAppbase} style={{padding: 10, cursor: 'pointer'}}>Add blog posts data to Appbase</button>
         <br />
-        {/* <input type="text" onChange={e => this.handleChange(e)} defaultValue={this.state.searchQuery} placeholder="Search" style={{padding: 10, width: 240}}/> */}
+        <input type="text" onChange={e => this.handleChange(e)} defaultValue={this.state.searchQuery} placeholder="Search" style={{padding: 10, width: 240}}/>
         <Results posts={this.state.posts} />
       </div>
     )
