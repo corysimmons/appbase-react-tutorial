@@ -27,16 +27,12 @@ export default class App extends Component {
     }
   }
 
-  fetchPosts = () => {
+  appbaseDataAndStreamGetter = (query = { match_all: {} }) => {
     appbaseReadRef
       .search({
         type: 'post',
         size: 1000,
-        body: {
-          query: {
-            match_all: {}
-          }
-        }
+        body: { query }
       })
       .on('data', res => {
         this.setState({
@@ -48,11 +44,7 @@ export default class App extends Component {
     appbaseReadRef
       .searchStream({
         type: 'post',
-        body: {
-          query: {
-            match_all: {}
-          }
-        }
+        body: { query }
       })
       .on('data', res => {
         this.setState({
@@ -63,7 +55,7 @@ export default class App extends Component {
   }
 
   componentDidMount() {
-    this.fetchPosts()
+    this.appbaseDataAndStreamGetter()
   }
 
   addPostsToAppbase = e => {
@@ -94,62 +86,19 @@ export default class App extends Component {
 
     this.setState({
       searchQuery: e.target.value
+    }, () => {
+      if (this.state.searchQuery !== '') {
+        this.appbaseDataAndStreamGetter({
+          fuzzy: {
+            title: {
+              value: this.state.searchQuery
+            }
+          }
+        })
+      } else {
+        this.appbaseDataAndStreamGetter()
+      }
     })
-
-    if (this.state.searchQuery !== '') {
-      appbaseReadRef
-        .search({
-          type: 'post',
-          size: 1000,
-          body: {
-            query: {
-              bool: {
-                must: [
-                  {
-                    match: {
-                      title: this.state.searchQuery
-                    }
-                  }
-                ]
-              },
-              minimum_should_match: 1
-            }
-          }
-        })
-        .on('data', res => {
-          this.setState({
-            posts: orderBy(res.hits.hits, o => Number(o._id), ['asc'])
-          })
-        })
-        .on('error', err => console.error(err))
-
-      appbaseReadRef
-        .searchStream({
-          type: 'post',
-          body: {
-            query: {
-              bool: {
-                must: [
-                  {
-                    match: {
-                      title: this.state.searchQuery
-                    }
-                  }
-                ],
-                minimum_should_match: 1
-              }
-            }
-          }
-        })
-        .on('data', res => {
-          this.setState({
-            posts: orderBy([...this.state.posts, res], o => Number(o._id), ['asc'])
-          })
-        })
-        .on('error', err => console.error(err))
-    } else {
-      this.fetchPosts()
-    }
   }
 
   render() {
